@@ -47,14 +47,32 @@ const express = require("express");
 const app = express();
 const http = require("http").createServer(app);
 const io = require("socket.io")(http);
+const tf = require("@tensorflow/tfjs-node");
 
 app.use(express.static("public"));
 
 io.on("connection", (socket) => {
   console.log("A user connected");
-  // Handle events from the client
+
+  socket.on("upload_image", async (data) => {
+    // Process the image data
+    const imageBuffer = Buffer.from(data.split(",")[1], "base64");
+    const tensor = tf.node.decodeImage(imageBuffer);
+
+    // Extract text (you need a suitable TensorFlow.js model for this)
+    const text = await extractTextFromImage(tensor);
+
+    // Convert text to markdown and emit it back to client
+    socket.emit("markdown_output", `\`\`\`\n${text}\n\`\`\``);
+  });
 });
 
 http.listen(3000, () => {
   console.log("listening on *:3000");
 });
+
+// Dummy function, replace with actual logic
+async function extractTextFromImage(tensor) {
+  // TensorFlow.js model logic goes here
+  return "Extracted text from image";
+}
