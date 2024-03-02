@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Webcam Object Detection</title>
+  </head>
+  <body>
+    <video id="webcam" autoplay playsinline width="640" height="480"></video>
+    <button id="btn" onclick="myFunction()">help</button>
+
+    <form id="image-form">
+      <input type="file" id="image-upload" accept="image/*" />
+      <button type="submit">Upload Image</button>
+    </form>
+    <div id="markdown-output"></div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <script>
+      function myFunction() {
+        document.getElementById("btn").innerHTML = "YOU CLICKED ME!";
+        const video = document.getElementById("webcam");
+        video.onloadedmetadata = () => {
+          video
+            .play()
+            .then(() => {
+              // Video playback started, now start object detection
+            })
+            .catch((e) => {
+              console.error("Error starting video playback", e);
+            });
+        };
+      }
+    </script>
+    <script>
+      const video = document.getElementById("webcam");
+
+      // Define the detect function outside to be used later
+      async function detect(model) {
+        // Check if video is ready
+        if (video.readyState === 4) {
+          const predictions = await model.detect(video);
+          console.log(predictions);
+          // You can also display these predictions on the video here
+        }
+        requestAnimationFrame(() => detect(model)); // Keep detecting in a loop
+      }
+
+      window.onload = () => {
+        const socket = io();
+        // Access webcam
+        navigator.mediaDevices
+          .getUserMedia({ video: true })
+          .then((stream) => {
+            video.srcObject = stream;
+            video.onloadedmetadata = () => {
+              video.play(); // Ensure the video plays
+              // Load the model and start detecting objects
+              cocoSsd.load().then((model) => {
+                detect(model); // Start the detection loop
+              });
+            };
+          })
+          .catch((error) => {
+            console.error("Error accessing the webcam", error);
+          });
+      };
+
+      document
+        .getElementById("image-form")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+          const imageFile = document.getElementById("image-upload").files[0];
+          if (imageFile) {
+            const reader = new FileReader();
+            reader.onload = function (event) {
+              // Emit event to server with the image data
+              socket.emit("upload_image", event.target.result);
+            };
+            reader.readAsDataURL(imageFile);
+          }
+        });
+
+      // Handle markdown output from server
+      socket.on("markdown_output", function (data) {
+        document.getElementById("markdown-output").innerText = data;
+      });
+    </script>
+  </body>
+</html>
